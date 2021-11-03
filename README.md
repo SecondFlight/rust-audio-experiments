@@ -1,2 +1,5 @@
-# rust-audio-experiments
-An unorganized collection of audio experiments
+# Hi!
+
+You've found my Rust audio lab. This tracks my own learning. Anything that ends up being useful will be moved to another repository.
+
+MIT
