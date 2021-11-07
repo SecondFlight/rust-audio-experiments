@@ -1,7 +1,5 @@
-mod dumb;
-
 use color_eyre::Report;
-// use reqwest::Client;
+use reqwest::Client;
 use tracing::info;
 use tracing_subscriber::EnvFilter;
 
@@ -12,16 +10,13 @@ pub const URL_2: &str = "https://fasterthanli.me/series/advent-of-code-2020/part
 async fn main() -> Result<(), Report> {
     setup()?;
 
-    // let client = Client::new();
+    let client = Client::new();
 
-    // fetch_thing(&client, URL_1).await?;
-    // fetch_thing(&client, URL_2).await?;
+    let fut1 = fetch_thing(&client, URL_1);
+    let fut2 = fetch_thing(&client, URL_2);
 
-    info!("Building that dumb future...");
-    let fut = dumb::DumbFuture {};
-    info!("Awaiting that dumb future...");
-    fut.await;
-    info!("Done awaiting that dumb future");
+    fut1.await?;
+    fut2.await?;
 
     Ok(())
 }
@@ -42,9 +37,9 @@ fn setup() -> Result<(), Report> {
     Ok(())
 }
 
-// async fn fetch_thing(client: &Client, url: &str) -> Result<(), Report> {
-//     let res = client.get(url).send().await?.error_for_status()?;
-//     let content_type = res.headers().get("content-type");
-//     info!(%url, ?content_type, "Got a response!");
-//     Ok(())
-// }
+async fn fetch_thing(client: &Client, url: &str) -> Result<(), Report> {
+    let res = client.get(url).send().await?.error_for_status()?;
+    let content_type = res.headers().get("content-type");
+    info!(%url, ?content_type, "Got a response!");
+    Ok(())
+}
