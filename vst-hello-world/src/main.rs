@@ -16,17 +16,24 @@ impl Host for SampleHost {
 
 fn main() {
     let host = Arc::new(Mutex::new(SampleHost));
-    let path = Path::new("C:/Program Files/VST Plugins/OTT_x64.dll");
+    let path = Path::new("C:/Program Files/VstPlugins/OTT_x64.dll");
 
     let mut loader = PluginLoader::load(path, host.clone()).unwrap();
     let mut instance = loader.instance().unwrap();
+    let info = instance.get_info();
 
-    println!("{:?}", instance.get_info());
+    println!("{:?}", info);
+
+    let parameter_count = info.parameters;
+
+    for i in 0..parameter_count {
+        println!("{}", instance.get_parameter_object().get_parameter_name(i));
+    }
 
     instance.init();
-    println!("Initialized instance!");
+    // println!("Initialized instance!");
 
-    println!("Closing instance...");
+    // println!("Closing instance...");
     // Not necessary as the instance is shut down when it goes out of scope anyway.
     // drop(instance);
 }
