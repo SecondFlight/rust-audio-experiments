@@ -1,13 +1,19 @@
 extern crate vst;
 
+// cspell:ignore HINSTANCE HWND libloaderapi lpfn lpsz minwindef OVERLAPPEDWINDOW winapi winuser WNDCLASSW
+
+use std::ffi::OsStr;
+use std::iter::once;
+use std::os::windows::prelude::OsStrExt;
 use std::path::Path;
+use std::ptr;
 use std::sync::{Arc, Mutex};
 
 use vst::host::{Host, PluginLoader};
 use vst::plugin::Plugin;
 use winapi::shared::minwindef::HINSTANCE__;
-use winapi::shared::windef::{HMENU__};
-use winapi::um::winuser::HWND_DESKTOP;
+use winapi::um::libloaderapi::GetModuleHandleW;
+use winapi::um::winuser::{DefWindowProcW, RegisterClassW, WNDCLASSW, WS_OVERLAPPEDWINDOW, WS_VISIBLE};
 
 struct SampleHost;
 
@@ -17,9 +23,15 @@ impl Host for SampleHost {
     }
 }
 
+fn win32_string( value : &str ) -> Vec<u16> {
+    OsStr::new( value ).encode_wide().chain( once( 0 ) ).collect()
+}
+
+pub const WINDOW_CLASS_NAME: &str = "plugin_editor_class";
+
 fn main() {
     let host = Arc::new(Mutex::new(SampleHost));
-    let path = Path::new("C:/Program Files/VstPlugins/OTT_x64.dll");
+    let path = Path::new("C:/Program Files/VST Plugins/OTT_x64.dll");
 
     let mut loader = PluginLoader::load(path, host.clone()).unwrap();
     let mut instance = loader.instance().unwrap();
@@ -39,23 +51,42 @@ fn main() {
     let mut editor = instance.get_editor().unwrap();
     let size = editor.size();
 
+    println!("size: {:?}", size);
+
     // this is very gross
     // https://docs.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-createwindowexa
     let parent;
     unsafe {
+        let window_class = WNDCLASSW {
+            style: 0,
+            lpfnWndProc: Some( DefWindowProcW ),
+            cbClsExtra: 0,
+            cbWndExtra: 0,
+            hInstance: 0 as *mut HINSTANCE__,
+            hIcon: ptr::null_mut(),
+            hCursor: ptr::null_mut(),
+            hbrBackground: ptr::null_mut(),
+            lpszMenuName: ptr::null_mut(),
+            lpszClassName: win32_string(WINDOW_CLASS_NAME).as_ptr(),
+        };
+        let class_atom = RegisterClassW(&window_class);
+        if class_atom == 0 {
+            panic!("Error registering window class");
+        }
+        let hinstance = GetModuleHandleW( ptr::null_mut() );
         parent = winapi::um::winuser::CreateWindowExW(
             0,
-            "STATIC".as_bytes().as_ptr() as *const u16,
-            "editor".as_bytes().as_ptr() as *const u16,
-            0x10000000,
+            win32_string(WINDOW_CLASS_NAME).as_ptr(),
+            win32_string("editor").as_ptr(),
+            WS_OVERLAPPEDWINDOW | WS_VISIBLE,
             0,
             0,
             size.0,
             size.1,
-            HWND_DESKTOP,
-            0 as *mut HMENU__,
-            0 as *mut HINSTANCE__,
-            0 as *mut winapi::ctypes::c_void,
+            ptr::null_mut(),
+            ptr::null_mut(),
+            hinstance,
+            ptr::null_mut(),
         );
         winapi::um::winuser::ShowWindow(parent, 1);
     }
