@@ -10,8 +10,9 @@ use std::sync::{Arc, Mutex};
 use vst::host::{Host, PluginLoader};
 use vst::plugin::Plugin;
 use winapi::shared::minwindef::HINSTANCE__;
+use winapi::shared::windef::POINT;
 use winapi::um::libloaderapi::GetModuleHandleW;
-use winapi::um::winuser::{CreateWindowExW, DefWindowProcW, RegisterClassW, ShowWindow, WNDCLASSW, WS_OVERLAPPEDWINDOW, WS_VISIBLE};
+use winapi::um::winuser::{CreateWindowExW, DefWindowProcW, DispatchMessageW, GetMessageW, MSG, RegisterClassW, ShowWindow, TranslateMessage, WNDCLASSW, WS_OVERLAPPEDWINDOW, WS_VISIBLE};
 
 struct SampleHost;
 
@@ -21,8 +22,8 @@ impl Host for SampleHost {
     }
 }
 
-fn win32_string( value : &str ) -> Vec<u16> {
-    OsStr::new( value ).encode_wide().chain( once( 0 ) ).collect()
+fn win32_string(value: &str) -> Vec<u16> {
+    OsStr::new(value).encode_wide().chain(once(0)).collect()
 }
 
 pub const WINDOW_CLASS_NAME: &str = "plugin_editor_class";
@@ -53,7 +54,7 @@ fn main() {
     unsafe {
         let window_class = WNDCLASSW {
             style: 0,
-            lpfnWndProc: Some( DefWindowProcW ),
+            lpfnWndProc: Some(DefWindowProcW),
             cbClsExtra: 0,
             cbWndExtra: 0,
             hInstance: 0 as *mut HINSTANCE__,
@@ -67,7 +68,7 @@ fn main() {
         if class_atom == 0 {
             panic!("Error registering window class");
         }
-        let hinstance = GetModuleHandleW( ptr::null_mut() );
+        let hinstance = GetModuleHandleW(ptr::null_mut());
         parent = CreateWindowExW(
             0,
             win32_string(WINDOW_CLASS_NAME).as_ptr(),
@@ -85,12 +86,31 @@ fn main() {
         ShowWindow(parent, 1);
     }
     let successful = editor.open(parent as *mut std::ffi::c_void);
-    
+
     println!("could open editor with provided window: {}", successful);
 
     instance.resume();
-    
-    std::thread::sleep(std::time::Duration::from_millis(10000));
+
+    let mut msg = MSG {
+        hwnd : std::ptr::null_mut(),
+        message : 0,
+        wParam : 0,
+        lParam : 0,
+        time : 0,
+        pt : POINT{ x : 0, y : 0 },
+    };
+
+    unsafe {
+        loop {
+            let res = GetMessageW(&mut msg, std::ptr::null_mut(), 0, 0);
+            if res == 0 || res == -1 {
+                break;
+            }
+
+            TranslateMessage(&msg);
+            DispatchMessageW(&msg);
+        }
+    }
 
     println!("Closing instance...");
     // Not necessary as the instance is shut down when it goes out of scope anyway.
