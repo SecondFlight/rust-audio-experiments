@@ -1,5 +1,3 @@
-extern crate vst;
-
 // cspell:ignore HINSTANCE HWND libloaderapi lpfn lpsz minwindef OVERLAPPEDWINDOW winapi winuser WNDCLASSW
 
 use std::ffi::OsStr;
@@ -13,7 +11,7 @@ use vst::host::{Host, PluginLoader};
 use vst::plugin::Plugin;
 use winapi::shared::minwindef::HINSTANCE__;
 use winapi::um::libloaderapi::GetModuleHandleW;
-use winapi::um::winuser::{DefWindowProcW, RegisterClassW, WNDCLASSW, WS_OVERLAPPEDWINDOW, WS_VISIBLE};
+use winapi::um::winuser::{CreateWindowExW, DefWindowProcW, RegisterClassW, ShowWindow, WNDCLASSW, WS_OVERLAPPEDWINDOW, WS_VISIBLE};
 
 struct SampleHost;
 
@@ -31,13 +29,11 @@ pub const WINDOW_CLASS_NAME: &str = "plugin_editor_class";
 
 fn main() {
     let host = Arc::new(Mutex::new(SampleHost));
-    let path = Path::new("C:/Program Files/VST Plugins/OTT_x64.dll");
+    let path = Path::new("C:/Program Files/VstPlugins/OTT_x64.dll");
 
     let mut loader = PluginLoader::load(path, host.clone()).unwrap();
     let mut instance = loader.instance().unwrap();
     let info = instance.get_info();
-
-    println!("{:?}", info);
 
     let parameter_count = info.parameters;
 
@@ -50,8 +46,6 @@ fn main() {
 
     let mut editor = instance.get_editor().unwrap();
     let size = editor.size();
-
-    println!("size: {:?}", size);
 
     // this is very gross
     // https://docs.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-createwindowexa
@@ -74,7 +68,7 @@ fn main() {
             panic!("Error registering window class");
         }
         let hinstance = GetModuleHandleW( ptr::null_mut() );
-        parent = winapi::um::winuser::CreateWindowExW(
+        parent = CreateWindowExW(
             0,
             win32_string(WINDOW_CLASS_NAME).as_ptr(),
             win32_string("editor").as_ptr(),
@@ -88,12 +82,14 @@ fn main() {
             hinstance,
             ptr::null_mut(),
         );
-        winapi::um::winuser::ShowWindow(parent, 1);
+        ShowWindow(parent, 1);
     }
     let successful = editor.open(parent as *mut std::ffi::c_void);
     
     println!("could open editor with provided window: {}", successful);
 
+    instance.resume();
+    
     std::thread::sleep(std::time::Duration::from_millis(10000));
 
     println!("Closing instance...");
